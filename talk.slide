@@ -1,0 +1,288 @@
+Fuzz Testing with Go
+16 Nov 2016
+
+Jud White
+@judson_white
+https://github.com/judwhite
+
+* Slides
+
+- [[https://github.com/judwhite/talks-gofuzz]]
+
+.image images/americanfuzzylop.jpg 460 _
+
+* Who am I?
+
+- Jud White
+- [[https://github.com/judwhite]]
+- Dell, work on performance/reliability of backend services
+- [[http://nsq.io/][NSQ]] contributor (distributed message queue)
+- Likes to code; doesn't like phone calls in the middle of the night
+
+* This Talk
+
+- What's fuzz testing, and why?
+- What to fuzz test?
+- Real-world demo
+- How-to and best practices
+
+* Cheat sheet
+
+[[https://github.com/dvyukov/go-fuzz][github.com/dvyukov/go-fuzz]]
+
+  $ go get -u github.com/dvyukov/go-fuzz/go-fuzz-build
+  $ go get -u github.com/dvyukov/go-fuzz/go-fuzz
+
+Almost no configuration:
+
+  // +build gofuzz
+  
+  func Fuzz(data []byte) int {
+      // pass `data` to your code
+  }
+
+Build and run:
+
+  $ go-fuzz-build github.com/go-logfmt/logfmt     # rewrites code for instrumentation
+                                                  # creates zip file
+                                                  # can take a while
+
+  $ go-fuzz -bin=./logfmt-fuzz.zip -workdir=fuzz  # runs fuzz test
+                                                  # put initial corpus in ./{workdir}/corpus
+
+* What's fuzz testing, and why?
+
+* Let's start with why
+
+Everyone makes mistakes.
+
+* Input sanitized?
+
+.image images/xkcd327_crop.png 400 _
+
+* UTF-8?
+
+.image images/banking_with_utf8_crop2.jpg
+
+* "Hey, did we remember to zero that buffer?"
+
+.image images/wtf_ding_dong.jpg 500 _
+
+* What's Fuzz Testing?
+
+- Finds inputs which make programs behave unexpectedly
+- Uses coverage guided testing
+- Mutates input to find new coverage
+- Finds bugs other approaches won't find, you don't need to write any tests
+- Mostly for programs that parse complex inputs
+
+* Common issues found
+
+- Crashes and panics
+- Program hangs
+- High memory utilization
+- Inconsistent behavior, denial-of-service, and security bugs
+
+* Coverage guided fuzzing and mutations
+
+	for {
+		randomly mutate input;
+		execute and collect coverage; 
+		if new coverage, add to corpus;
+	}
+
+.image images/algo.png 380 _
+
+.caption Source: [[https://github.com/dvyukov/go-fuzz/tree/master/slides][github.com/dvyukov/go-fuzz/tree/master/slides]]
+
+* What to fuzz test?
+
+* Parsers
+
+- Parsing text or bytes into structured data
+- Reading from a network or file
+- Compression
+- Serialization - unpack-pack chain
+- Image / video decoding
+- Text-based grammar (languages)
+
+* Refactors, Optimizations
+
+- Check two different implementaions (e.g. dumb and optimized)
+- If output isn't equal, panic
+- If new implementation rejects valid input, panic
+
+* Demo
+
+* Simple program
+
+.code fuzztest/fuzztest.go /^func test/,/^}/
+
+.code fuzztest/fuzz.go
+
+.caption Source: [[https://github.com/judwhite/talks-gofuzz/tree/master/fuzztest]]
+
+* Build and run fuzz testing
+
+  $ go-fuzz-build github.com/judwhite/talks-gofuzz/fuzztest
+
+  $ go-fuzz -bin=./fuzztest-fuzz.zip -workdir=fuzz
+  
+  slaves: 8, corpus: 9 (1s ago), crashers: 1, restarts: 1/0, execs: 0 (0/sec), cover: 0, uptime: 3s
+  slaves: 8, corpus: 9 (4s ago), crashers: 1, restarts: 1/0, execs: 0 (0/sec), cover: 15, uptime: 6s
+
+"crashers: 1" means the program panic'd or called os.Exit
+
+Other useful options:
+
+  go-fuzz-build [options] pkg
+    -func [name]: specify which Fuzz func to call
+    -o [name]:    output zip filename
+    -work:        keep working directory (useful for debugging go-fuzz)
+
+* ./fuzz/crashers dir after a crash
+
+  ./crashers:
+  total 3
+  drwxr-xr-x 1 Jud 197609   0 Nov 16 02:32 ./
+  drwxr-xr-x 1 Jud 197609   0 Nov 16 02:32 ../
+  -rw-r--r-- 1 Jud 197609   8 Nov 16 02:32 5978bab5700ea07b5c3fdec0b874e15bbb407384
+  -rw-r--r-- 1 Jud 197609 654 Nov 16 02:32 5978bab5700ea07b5c3fdec0b874e15bbb407384.output
+  -rw-r--r-- 1 Jud 197609  26 Nov 16 02:32 5978bab5700ea07b5c3fdec0b874e15bbb407384.quoted
+ 
+  $ hexdump -C 5978bab5700ea07b5c3fdec0b874e15bbb407384
+  00000000  08 0b 0a 0d 0f 00 00 0d                           |........|
+ 
+  $ cat 5978bab5700ea07b5c3fdec0b874e15bbb407384.output
+  panic: bad data
+  
+  goroutine 1 [running]:
+  panic(0x4bcde0, 0xc04200e120)
+  ...
+  
+* Feed your tests ./fuzz/crashers/{sha1}.quoted
+
+  $ cat 5978bab5700ea07b5c3fdec0b874e15bbb407384.quoted
+        "\b\v\n\r\x0f\x00\x00\r"
+
+* Real world bug
+
+* Quick backstory
+
+- Deployed our first customer facing Go service. Yay! 😄
+- Taking 1000x the expected traffic. 😐
+- We want to extract information from the logs.
+
+Two packages read logfmt:
+
+- [[https://github.com/go-logfmt/logfmt][github.com/go-logfmt/logfmt]] - actively maintained
+- [[https://github.com/kr/logfmt][github.com/kr/logfmt]] - last commit 2.5 years ago (sometimes projects are done)
+
+* And go-logfmt/logfmt has Fuzz tests!
+
+.image images/logfmt_original_fuzz.png 500 _
+
+* Or does it?
+
+.image images/05_crop.png 500 _
+
+.caption _(note:_it_does_now)_
+
+* We should start with a corpus
+
+- Small, and diverse
+- Use your existing test cases
+
+* Generating corpus from tests
+
+	data := []struct {
+		in   []interface{}
+		want []byte
+	}{
+		{in: kv("k", 1e-3), want: []byte("k=0.001")},
+		{in: kv("k", "v v"), want: []byte(`k="v v"`)},
+		{in: kv("k1", "v1", "k2", "v2"), want: []byte("k1=v1 k2=v2")},
+		...
+	}
+
+	for _, d := range data {
+		writeCorpus(d.want) // <-- * ADD THIS LINE *
+		...
+	}
+ 
+	func writeCorpus(data []byte) { // write data to ./fuzz/corpus/{sha1}.test
+		dir := filepath.Join("fuzz", "corpus")
+		os.MkdirAll(dir, 0644)
+		
+		hash := sha1.Sum(data)
+		fileName := filepath.Join(dir, fmt.Sprintf("%40x.test", hash))
+		ioutil.WriteFile(fileName, data, 0644)
+	}
+
+* Build and run
+
+  $ go-fuzz-build github.com/go-logfmt/logfmt
+
+  $ go-fuzz -bin=./logfmt-fuzz.zip -workdir=fuzz
+
+* And...
+
+.image images/crashers_1_uptime_3s.png 40 _
+
+* Now what?
+
+- Panics are simple, you get line numbers
+- Failed assertions are harder
+- Create a test for the crasher and run coverage
+
+  $ go test -run TestCrasher -coverprofile cover.out
+  $ go tool cover -html=cover.out
+
+.image images/03.png 310 _
+
+* Unit Tests vs Fuzz Testing: Code Coverage
+
+.image images/test_vs_fuzz.png 550 _
+
+* Root cause: UTF-8
+
+- Invalid UTF-8 characters were encoded as a literal �
+- Literal � was encoded as \ufffd, unpack-pack-unpack produced different results
+- Fix: encode invalid UTF-8 and � the same
+- [[https://github.com/go-logfmt/logfmt/pull/4]]
+
+* Best practices
+
+- Create an initial corpus from your tests
+- Commit Fuzz functions and corpus to version control
+- Add crashers to your unit tests
+- Like unit tests, the person who wrote the code should write Fuzz tests
+- Test refactors, compare results
+- Watch benchmarks, correctness can hurt performance
+- Fuzz your dependencies
+
+* Potential targets!
+
+- [[https://github.com/uber-go/zap]] - Reflection-free, zero-allocation JSON encoder
+- [[https://github.com/Comcast/gots]] - MPEG Transport Stream handling in Go
+- [[https://github.com/NYTimes/gziphandler]] - Middleware to gzip HTTP responses
+- [[https://github.com/dgryski/trifles/blob/master/fuzzprot/fuzzprot.go]] - Damian promised this has bugs
+
+* Resources
+
+Articles:
+
+- [[https://blog.cloudflare.com/dns-parser-meet-go-fuzzer/][Filippo Valsorda: DNS parser, meet Go fuzzer]]
+- [[https://medium.com/@dgryski/go-fuzz-github-com-arolek-ase-3c74d5a3150c][Damian Gryski: go-fuzz quick tutorial]]
+- [[http://lcamtuf.coredump.cx/afl][American fuzzy lop]]
+
+Videos:
+
+- [[https://www.youtube.com/watch?v=a9xrxRsIbSU][Dmitry Vyukov: GopherCon 2015]] (23m, go-fuzz starts at 7m39s; [[http://go-talks.appspot.com/github.com/dvyukov/go-fuzz/slides/go-fuzz.slide][slides]])
+- [[https://www.youtube.com/watch?v=QEhPaj3vvPA][Filippo Valsorda: GothamGo 2015]] (25m)
+
+* My other talks
+
+- [[https://github.com/judwhite/talks-devspringboard][Get Going with Go]] (intro, tools)
+- [[https://github.com/judwhite/talks-edgeatx][Go: A Practical Start Guide]] (intro, concurrency)
+- [[https://github.com/judwhite/talks-goperf][Performance Profiling in Go]]
