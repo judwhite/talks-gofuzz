@@ -26,7 +26,7 @@ https://github.com/judwhite
 - Real-world demo
 - How-to and best practices
 
-* Cheat sheet
+* Tools
 
 [[https://github.com/dvyukov/go-fuzz][github.com/dvyukov/go-fuzz]]
 
@@ -52,9 +52,9 @@ Build and run:
 
 * What's fuzz testing, and why?
 
-* Let's start with why
+* The why is easy
 
-Everyone makes mistakes.
+Even when we're careful, everyone makes mistakes.
 
 * Input sanitized?
 
@@ -71,7 +71,7 @@ Everyone makes mistakes.
 * What's Fuzz Testing?
 
 - Finds inputs which make programs behave unexpectedly
-- Uses coverage guided testing
+- Coverage guided testing
 - Mutates input to find new coverage
 - Finds bugs other approaches won't find, you don't need to write any tests
 - Mostly for programs that parse complex inputs
@@ -280,6 +280,26 @@ Videos:
 
 - [[https://www.youtube.com/watch?v=a9xrxRsIbSU][Dmitry Vyukov: GopherCon 2015]] (23m, go-fuzz starts at 7m39s; [[http://go-talks.appspot.com/github.com/dvyukov/go-fuzz/slides/go-fuzz.slide][slides]])
 - [[https://www.youtube.com/watch?v=QEhPaj3vvPA][Filippo Valsorda: GothamGo 2015]] (25m)
+
+* Additional reading
+
+- [[https://blog.acolyer.org/2015/11/16/simplifying-and-isolating-failure-inducing-input/][Simplifying and Isolating Failure-Inducing Input]]
+- [[https://blog.acolyer.org/2015/11/17/hierarchical-delta-debugging/][Hierarchical Delta Debugging]]
+- [[https://github.com/dgryski/talks/blob/master/fuzzing/slides.md]]
+- [[https://github.com/zimmski/tavor]]
+- [[https://github.com/MozillaSecurity/dharma]]
+- [[https://github.com/dgryski/carbonapi/blob/master/carbonapi.dg]] - example to generate random graphite expressions with dharma for a parser
+- [[https://godoc.org/testing/quick]]
+- [[https://github.com/google/gofuzz]] - like the the generation half of `testing/quick`; it lets you register handlers that can say "give me a random value of type $foo"
+- [[https://github.com/dgryski/go-ddmin]]
+- [[https://github.com/Sereal/Sereal/blob/master/Go/sereal/cmd/dsrl/main.go#L88]] - go-ddmin usage
+
+* Special thanks
+
+- [[https://github.com/dvyukov][Dmitry Vyuskov]] - go-fuzz, race detector, merging fix for windows, many other things
+- [[https://github.com/dgryski][Damian Gryski]] - feedback and additional resources
+- [[https://github.com/ChrisHines][Chris Hines]] - working on the go-logfmt PR and helping with benchmarks
+- [[https://github.com/dlsniper][Florin Pățan]] - feedback and the eventual reinstatement of :partyparrot: on Slack
 
 * My other talks
 
