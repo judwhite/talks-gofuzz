@@ -294,6 +294,11 @@ Videos:
 - [[https://github.com/dgryski/go-ddmin]]
 - [[https://github.com/Sereal/Sereal/blob/master/Go/sereal/cmd/dsrl/main.go#L88]] - go-ddmin usage
 
+* More articles (added after recording)
+
+- [[https://www.cockroachlabs.com/blog/squashing-a-schroedinbug-with-strong-typing/]]
+- [[https://lcamtuf.blogspot.nl/2014/11/pulling-jpegs-out-of-thin-air.html]]
+
 * Special thanks
 
 - [[https://github.com/dvyukov][Dmitry Vyuskov]] - go-fuzz, race detector, merging fix for windows, many other things
